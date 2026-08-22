@@ -136,11 +136,52 @@ namespace CustomRecipesAPI
             PostPatches.Invoke();
         }
 
+        public static void AddMouldItemComponent(Item item, MouldItemComponent mouldItemComponent)
+        {
+            List<ItemComponent> components = (List<ItemComponent>)typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item);
+            components.Add(mouldItemComponent);
+            typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(item, components);
+        }
+
+        public static void FixInspectorValues(Item item, MouldDefinition mouldDefinition)
+        {
+            MouldDefinition mouldDefinition_axeHeadCurveMould = MouldDefinition.All.Where(mould => mould.Hash == 22952u).First();
+
+            typeof(MouldDefinition).GetField("allowedMaterials", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldDefinition,
+                typeof(MouldDefinition).GetField("allowedMaterials", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mouldDefinition_axeHeadCurveMould)
+            );
+
+            typeof(MouldDefinition).GetField("product", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldDefinition,
+                item
+            );
+        }
+
         public static void RegisterMouldDefinition(MouldDefinition mouldDefinition)
         {
             MouldDefinition.CheckItems();
             Dictionary<uint, MouldDefinition> items = (Dictionary<uint, MouldDefinition>)typeof(HashedGeneralValue<MouldDefinition>).GetField("items", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
             items.Add(mouldDefinition.Hash, mouldDefinition);
+        }
+
+        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent, bool standardMould, bool hebiosMould, Vector3 positionOffset, Vector3 rotationOffset)
+        {
+            Item item = Item.All.Where(item => item.Hash == itemHash).First();
+
+            AddMouldItemComponent(item, mouldItemComponent);
+            FixInspectorValues(item, mouldDefinition);
+            RegisterMouldDefinition(mouldDefinition);
+            smelterSpawnPositionOffsets[item.Prefab.Hash] = positionOffset;
+            smelterSpawnRotationOffsets[item.Prefab.Hash] = rotationOffset;
+
+            if (standardMould)
+            {
+                itemsToAddToStandardMouldPress.Add(item);
+            }
+
+            if (hebiosMould)
+            {
+                itemsToAddToHebiosMouldPress.Add(item);
+            }
         }
     }
 }
