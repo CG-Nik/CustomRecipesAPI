@@ -104,6 +104,8 @@ namespace CustomRecipesAPI
         public static Dictionary<uint, Vector3> smelterSpawnPositionOffsets = [];
         // Same thing, but with rotation instead of position
         public static Dictionary<uint, Vector3> smelterSpawnRotationOffsets = [];
+        // Used for FixInspectorValues, gets set here to prevent having to set it every time FixInspectorValues is called
+        private static MouldDefinition mouldDefinition_axeHeadCurveMould;
 
         public override void OnInitializeMelon()
         {
@@ -112,6 +114,8 @@ namespace CustomRecipesAPI
 
         public override void OnLateInitializeMelon()
         {
+            mouldDefinition_axeHeadCurveMould = MouldDefinition.All.Where(mould => mould.Hash == 22952u).First();
+
             PreSetUpMoulds.Invoke();
 
             SetUpMoulds.Invoke();
@@ -145,8 +149,6 @@ namespace CustomRecipesAPI
 
         public static void FixInspectorValues(Item item, MouldDefinition mouldDefinition)
         {
-            MouldDefinition mouldDefinition_axeHeadCurveMould = MouldDefinition.All.Where(mould => mould.Hash == 22952u).First();
-
             typeof(MouldDefinition).GetField("allowedMaterials", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldDefinition,
                 typeof(MouldDefinition).GetField("allowedMaterials", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mouldDefinition_axeHeadCurveMould)
             );
@@ -163,7 +165,7 @@ namespace CustomRecipesAPI
             items.Add(mouldDefinition.Hash, mouldDefinition);
         }
 
-        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent, bool standardMould, bool hebiosMould, Vector3 positionOffset, Vector3 rotationOffset)
+        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent, bool addToStandardPress, bool addToHebiosPress, Vector3 positionOffset, Vector3 rotationOffset)
         {
             Item item = Item.All.Where(item => item.Hash == itemHash).First();
 
@@ -173,12 +175,12 @@ namespace CustomRecipesAPI
             smelterSpawnPositionOffsets[item.Prefab.Hash] = positionOffset;
             smelterSpawnRotationOffsets[item.Prefab.Hash] = rotationOffset;
 
-            if (standardMould)
+            if (addToStandardPress)
             {
                 itemsToAddToStandardMouldPress.Add(item);
             }
 
-            if (hebiosMould)
+            if (addToHebiosPress)
             {
                 itemsToAddToHebiosMouldPress.Add(item);
             }
