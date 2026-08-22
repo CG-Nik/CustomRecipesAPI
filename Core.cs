@@ -45,8 +45,8 @@ namespace CustomRecipesAPI
             if (stateMachineType == null) { return true; }
             Type originalType = stateMachineType.DeclaringType;
             if (originalType == null) { return true; }
-            if (originalType.Name != "Smelter") { MelonLogger.Msg($"not from Smelter, was from {originalType.Name}"); return true; }
-            if (stateMachineType.Name.Substring(0,13) != "<TrySmelt>d__") { MelonLogger.Msg($"not in TrySmelt, substring was {stateMachineType.Name.Substring(0,13)}"); return true; }
+            if (originalType.Name != "Smelter") { return true; }
+            if (stateMachineType.Name.Substring(0,13) != "<TrySmelt>d__") { return true; }
 
             if (Core.smelterSpawnPositionOffsets.ContainsKey(prefab.Hash))
             {
