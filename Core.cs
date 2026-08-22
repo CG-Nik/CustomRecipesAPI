@@ -165,15 +165,36 @@ namespace CustomRecipesAPI
             items.Add(mouldDefinition.Hash, mouldDefinition);
         }
 
-        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent, bool addToStandardPress, bool addToHebiosPress, Vector3 positionOffset, Vector3 rotationOffset)
+        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent = null, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
         {
             Item item = Item.All.Where(item => item.Hash == itemHash).First();
 
-            AddMouldItemComponent(item, mouldItemComponent);
+            if (mouldItemComponent != null)
+            {
+                AddMouldItemComponent(item, mouldItemComponent);
+            }
+
             FixInspectorValues(item, mouldDefinition);
+
             RegisterMouldDefinition(mouldDefinition);
-            smelterSpawnPositionOffsets[item.Prefab.Hash] = positionOffset;
-            smelterSpawnRotationOffsets[item.Prefab.Hash] = rotationOffset;
+
+            if (positionOffset != null)
+            {
+                smelterSpawnPositionOffsets[item.Prefab.Hash] = (Vector3)positionOffset;
+            }
+            else
+            {
+                smelterSpawnPositionOffsets.Remove(item.Prefab.Hash);
+            }
+
+            if (rotationOffset != null)
+            {
+                smelterSpawnRotationOffsets[item.Prefab.Hash] = (Vector3)rotationOffset;
+            }
+            else
+            {
+                smelterSpawnRotationOffsets.Remove(item.Prefab.Hash);
+            }
 
             if (addToStandardPress)
             {
