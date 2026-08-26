@@ -1,4 +1,5 @@
 ﻿using Alta;
+using Alta.Api.DataTransferModels.Extensions;
 using Alta.Blacksmithing;
 using Alta.Chunks;
 using Alta.Inventory;
@@ -6,6 +7,7 @@ using Alta.Networking;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using UnityEngine;
@@ -82,6 +84,12 @@ namespace CustomRecipesAPI
                     PickupDock pickupDock_inputDock_HebiosMouldPress = networkEntity_inputDock_HebiosMouldPress.gameObject.GetComponent<PickupDock>();
                     pickupDock_inputDock_HebiosMouldPress.Settings.IncludedItems.AddUnique(Core.itemsToAddToHebiosMouldPress);
                     break;
+                case 44646u: // This is the Smelter
+                    List<NetworkEntity> embeddedEntities_Smelter = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
+                    NetworkEntity networkEntity_oreDockB_Smelter = embeddedEntities_Smelter.Where(entity => entity.Hash == 42990u).First();
+                    PickupDock pickupDock_oreDockB_Smelter = networkEntity_oreDockB_Smelter.gameObject.GetComponent<PickupDock>();
+                    pickupDock_oreDockB_Smelter.Settings.IncludedItems.AddUnique(Core.itemsToAddToSmelter);
+                    break;
                 default:
                     break;
             }
@@ -89,9 +97,9 @@ namespace CustomRecipesAPI
     }
     public class Core : MelonMod
     {
-        public static event Action PreSetUpMoulds = () => { };
-        public static event Action SetUpMoulds = () => { };
-        public static event Action PostSetUpMoulds = () => { };
+        public static event Action PreSetUpRecipes = () => { };
+        public static event Action SetUpRecipes = () => { };
+        public static event Action PostSetUpRecipes = () => { };
         public static event Action PostPatches = () => { };
 
         // Adding an Item to this will add it to the filter that the Standard Mould Press uses for the weapon to be turned into a Mould
@@ -99,13 +107,52 @@ namespace CustomRecipesAPI
         public static List<Item> itemsToAddToStandardMouldPress = [];
         // Same thing, but with the Hebios Mould Press
         public static List<Item> itemsToAddToHebiosMouldPress = [];
+        // Same thing, but with the Smelter's input instead of making Moulds with a Mould Press
+        public static List<Item> itemsToAddToSmelter = [];
         // Adding an Item's Prefab's Hash to this will cause the Smelter to spawn the Item with that Vector3 as a position offset when creating said Item with a Mould
         // The purpose of this is to prevent certain items from getting stuck in the Smelter
         public static Dictionary<uint, Vector3> smelterSpawnPositionOffsets = [];
         // Same thing, but with rotation instead of position
         public static Dictionary<uint, Vector3> smelterSpawnRotationOffsets = [];
-        // Used for FixInspectorValues, gets set here to prevent having to set it every time FixInspectorValues is called
+        // Used for FixMouldDefinitionInspectorValues, gets set here to prevent having to get it every time FixMouldDefinitionInspectorValues is called
         private static MouldDefinition mouldDefinition_axeHeadCurveMould;
+        // Used to add SmeltingRecipes to the SmelterUnlockManager, which is the actually important "registering" that it does
+
+        public static Dictionary<int, Item> VanillaOreAndIngotItems = new Dictionary<int, Item> {
+            {42614, Item.All.Where(item => item.Hash == 42614u).First()},
+            {42566, Item.All.Where(item => item.Hash == 42566u).First()},
+            {5732, Item.All.Where(item => item.Hash == 5732u).First()},
+            {5698, Item.All.Where(item => item.Hash == 5698u).First()},
+            {4758, Item.All.Where(item => item.Hash == 4758u).First()},
+            {5802, Item.All.Where(item => item.Hash == 5802u).First()},
+            {7204, Item.All.Where(item => item.Hash == 7204u).First()},
+            {17090, Item.All.Where(item => item.Hash == 17090u).First()},
+            {57718, Item.All.Where(item => item.Hash == 57718u).First()},
+            {60398, Item.All.Where(item => item.Hash == 60398u).First()},
+            {24084, Item.All.Where(item => item.Hash == 24084u).First()},
+            {32224, Item.All.Where(item => item.Hash == 32224u).First()},
+            {16422, Item.All.Where(item => item.Hash == 16422u).First()},
+            {30996, Item.All.Where(item => item.Hash == 30996u).First()},
+            {24016, Item.All.Where(item => item.Hash == 24016u).First()}
+        };
+        public enum VanillaOreAndIngotIndexers
+        {
+            CopperOre = 42614,
+            IronOre = 42566,
+            GoldOre = 5732,
+            SilverOre = 5698,
+            MythrilOre = 4758,
+            CopperIngot = 5802,
+            IronIngot = 7204,
+            GoldIngot = 17090,
+            SilverIngot = 57718,
+            MythrilIngot = 60398,
+            CarsiIngot = 24084,
+            EvinonSteelIngot = 32224,
+            OrchiIngot = 16422,
+            RedIronIngot = 30996,
+            WhiteGoldIngot = 24016
+        }
 
         public override void OnInitializeMelon()
         {
@@ -116,11 +163,11 @@ namespace CustomRecipesAPI
         {
             mouldDefinition_axeHeadCurveMould = MouldDefinition.All.Where(mould => mould.Hash == 22952u).First();
 
-            PreSetUpMoulds.Invoke();
+            PreSetUpRecipes.Invoke();
 
-            SetUpMoulds.Invoke();
+            SetUpRecipes.Invoke();
 
-            PostSetUpMoulds.Invoke();
+            PostSetUpRecipes.Invoke();
 
             HarmonyInstance.Patch(AccessTools.Method(typeof(NetworkPrefab), "Initialize"), postfix: new HarmonyMethod(typeof(InitializePatch), nameof(InitializePatch.Postfix)));
             HarmonyInstance.Patch(AccessTools.Method(
@@ -147,7 +194,7 @@ namespace CustomRecipesAPI
             typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(item, components);
         }
 
-        public static void FixInspectorValues(Item item, MouldDefinition mouldDefinition)
+        public static void FixMouldDefinitionInspectorValues(Item item, MouldDefinition mouldDefinition)
         {
             typeof(MouldDefinition).GetField("allowedMaterials", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldDefinition,
                 typeof(MouldDefinition).GetField("allowedMaterials", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mouldDefinition_axeHeadCurveMould)
@@ -165,19 +212,8 @@ namespace CustomRecipesAPI
             items.Add(mouldDefinition.Hash, mouldDefinition);
         }
 
-        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent = null, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
+        public static void AddSmelterOffsets(Item item, Vector3? positionOffset, Vector3? rotationOffset)
         {
-            Item item = Item.All.Where(item => item.Hash == itemHash).First();
-
-            if (mouldItemComponent != null)
-            {
-                AddMouldItemComponent(item, mouldItemComponent);
-            }
-
-            FixInspectorValues(item, mouldDefinition);
-
-            RegisterMouldDefinition(mouldDefinition);
-
             if (positionOffset != null)
             {
                 smelterSpawnPositionOffsets[item.Prefab.Hash] = (Vector3)positionOffset;
@@ -195,6 +231,22 @@ namespace CustomRecipesAPI
             {
                 smelterSpawnRotationOffsets.Remove(item.Prefab.Hash);
             }
+        }
+
+        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent = null, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
+        {
+            Item item = Item.All.Where(item => item.Hash == itemHash).First();
+
+            if (mouldItemComponent != null)
+            {
+                AddMouldItemComponent(item, mouldItemComponent);
+            }
+
+            FixMouldDefinitionInspectorValues(item, mouldDefinition);
+
+            RegisterMouldDefinition(mouldDefinition);
+
+            AddSmelterOffsets(item, positionOffset, rotationOffset);
 
             if (addToStandardPress)
             {
@@ -205,6 +257,59 @@ namespace CustomRecipesAPI
             {
                 itemsToAddToHebiosMouldPress.Add(item);
             }
+        }
+
+        public static void FixSmeltingRecipeInspectorValues(SmeltingRecipe smeltingRecipe, Item[] inputs, Item[] outputs)
+        {
+            ItemCount[] originalInputs = (ItemCount[])typeof(SmeltingRecipe).GetField("input", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smeltingRecipe);
+            for (int i = 0; i < originalInputs.Length; i++)
+            {
+                typeof(ItemCount).GetField("item", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(originalInputs[i], inputs[i]);
+            }
+            typeof(SmeltingRecipe).GetField("input", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smeltingRecipe,
+                originalInputs
+            );
+
+            ItemCount[] originalOutputs = (ItemCount[])typeof(SmeltingRecipe).GetField("output", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smeltingRecipe);
+            for (int i = 0; i < originalOutputs.Length; i++)
+            {
+                typeof(ItemCount).GetField("item", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(originalOutputs[i], outputs[i]);
+            }
+            typeof(SmeltingRecipe).GetField("output", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smeltingRecipe,
+                originalOutputs
+            );
+        }
+
+        public static void RegisterSmeltingRecipe(SmeltingRecipe smeltingRecipe)
+        {
+            SmeltingRecipe.CheckItems();
+            Dictionary<uint, SmeltingRecipe> items = (Dictionary<uint, SmeltingRecipe>)typeof(HashedGeneralValue<SmeltingRecipe>).GetField("items", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            items.Add(smeltingRecipe.Hash, smeltingRecipe);
+        }
+
+        public static void AddSmeltingRecipeToSmelterUpgrades(SmeltingRecipe smeltingRecipe, SmelterUpgrades smelterUpgrades = null, bool addToSimpleServerDefaultUpgrades = true)
+        {
+            if (addToSimpleServerDefaultUpgrades)
+            {
+                SmelterUpgrades smelterUpgrades_simpleServerDefaultUpgrades = SmelterUpgrades.All.Where(upgrade => upgrade.Hash == 5674u).First();
+                List<SmeltingRecipe> originalSmeltingRecipes = ((SmeltingRecipe[])typeof(SmelterUpgrades).GetField("recipes", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smelterUpgrades_simpleServerDefaultUpgrades)).ToList();
+                originalSmeltingRecipes.Add(smeltingRecipe);
+                typeof(SmelterUpgrades).GetField("recipes", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smelterUpgrades_simpleServerDefaultUpgrades, originalSmeltingRecipes.ToArray());
+            }
+
+            if (smelterUpgrades != null)
+            {
+                List<SmeltingRecipe> originalSmeltingRecipes = ((SmeltingRecipe[])typeof(SmelterUpgrades).GetField("recipes", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smelterUpgrades)).ToList();
+                originalSmeltingRecipes.Add(smeltingRecipe);
+                typeof(SmelterUpgrades).GetField("recipes", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smelterUpgrades, originalSmeltingRecipes.ToArray());
+            }
+        }
+
+        public static void SetUpSmeltingRecipe(SmeltingRecipe smeltingRecipe, Item[] inputs, Item[] outputs, SmelterUpgrades smelterUpgrades = null, bool addToSimpleServerDefaultUpgrades = true)
+        {
+            FixSmeltingRecipeInspectorValues(smeltingRecipe, inputs, outputs);
+            RegisterSmeltingRecipe(smeltingRecipe);
+            AddSmeltingRecipeToSmelterUpgrades(smeltingRecipe, smelterUpgrades, addToSimpleServerDefaultUpgrades);
         }
     }
 }
