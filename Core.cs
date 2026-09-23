@@ -1,9 +1,11 @@
 ﻿using Alta;
 using Alta.Api.DataTransferModels.Extensions;
 using Alta.Blacksmithing;
+using Alta.Carpentry;
 using Alta.Chunks;
 using Alta.Inventory;
 using Alta.Networking;
+using Alta.Pages;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -48,7 +50,7 @@ namespace CustomRecipesAPI
             Type originalType = stateMachineType.DeclaringType;
             if (originalType == null) { return true; }
             if (originalType.Name != "Smelter") { return true; }
-            if (stateMachineType.Name.Substring(0,13) != "<TrySmelt>d__") { return true; }
+            if (stateMachineType.Name.Substring(0, 13) != "<TrySmelt>d__") { return true; }
 
             if (Core.smelterSpawnPositionOffsets.ContainsKey(prefab.Hash))
             {
@@ -310,6 +312,34 @@ namespace CustomRecipesAPI
             FixSmeltingRecipeInspectorValues(smeltingRecipe, inputs, outputs);
             RegisterSmeltingRecipe(smeltingRecipe);
             AddSmeltingRecipeToSmelterUpgrades(smeltingRecipe, smelterUpgrades, addToSimpleServerDefaultUpgrades);
+        }
+
+        public static void FixChiselDefinitionInspectorValues(ChiselDefinition chiselDefinition, Glyph glyph)
+        {
+            chiselDefinition.recipeGlyph = glyph;
+        }
+
+        public static void RegisterChiselDefinition(ChiselDefinition chiselDefinition)
+        {
+            ChiselDefinition.CheckItems();
+            Dictionary<uint, ChiselDefinition> items = (Dictionary<uint, ChiselDefinition>)typeof(HashedGeneralValue<ChiselDefinition>).GetField("items", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            items.Add(chiselDefinition.Hash, chiselDefinition);
+        }
+
+        public static void AddChiselDefinitionToChiselingCollection(ChiselDefinition chiselDefinition)
+        {
+            PageCollection chiselingCollection = PageCollection.All.Where(coll => coll.Hash == 716u).First();
+            UnityEngine.Object[] pageBasesArray = (UnityEngine.Object[])typeof(PageCollection).GetField("pageBases", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(chiselingCollection);
+            List<UnityEngine.Object> pageBasesList = pageBasesArray.ToList();
+            pageBasesList.Add(chiselDefinition);
+            typeof(PageCollection).GetField("pageBases", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselingCollection, pageBasesList.ToArray());
+        }
+
+        public static void SetUpChiselDefinition(ChiselDefinition chiselDefinition, Glyph glyph)
+        {
+            FixChiselDefinitionInspectorValues(chiselDefinition, glyph);
+            RegisterChiselDefinition(chiselDefinition);
+            AddChiselDefinitionToChiselingCollection(chiselDefinition);
         }
     }
 }
