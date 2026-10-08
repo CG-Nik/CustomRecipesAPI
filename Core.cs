@@ -1,5 +1,4 @@
 ﻿using Alta;
-using Alta.Api.DataTransferModels.Extensions;
 using Alta.Blacksmithing;
 using Alta.Carpentry;
 using Alta.Chunks;
@@ -68,35 +67,6 @@ namespace CustomRecipesAPI
         }
     }
 
-    public class InitializePatch
-    {
-        internal static void Postfix(NetworkPrefab __instance)
-        {
-            switch (__instance.Hash)
-            {
-                case 13362u: // This is the Standard Mould Press
-                    List<NetworkEntity> embeddedEntities_StandardMouldPress = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
-                    NetworkEntity networkEntity_StandardMouldPress = embeddedEntities_StandardMouldPress.Where(entity => entity.Hash == 36080u).First();
-                    PickupDock pickupDock_StandardMouldPress = networkEntity_StandardMouldPress.gameObject.GetComponent<PickupDock>();
-                    pickupDock_StandardMouldPress.Settings.IncludedItems.AddUnique(Core.itemsToAddToStandardMouldPress);
-                    break;
-                case 2594u: // This is the Hebios Mould Press
-                    List<NetworkEntity> embeddedEntities_HebiosMouldPress = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
-                    NetworkEntity networkEntity_inputDock_HebiosMouldPress = embeddedEntities_HebiosMouldPress.Where(entity => entity.Hash == 36080u).First();
-                    PickupDock pickupDock_inputDock_HebiosMouldPress = networkEntity_inputDock_HebiosMouldPress.gameObject.GetComponent<PickupDock>();
-                    pickupDock_inputDock_HebiosMouldPress.Settings.IncludedItems.AddUnique(Core.itemsToAddToHebiosMouldPress);
-                    break;
-                case 44646u: // This is the Smelter
-                    List<NetworkEntity> embeddedEntities_Smelter = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
-                    NetworkEntity networkEntity_oreDockB_Smelter = embeddedEntities_Smelter.Where(entity => entity.Hash == 42990u).First();
-                    PickupDock pickupDock_oreDockB_Smelter = networkEntity_oreDockB_Smelter.gameObject.GetComponent<PickupDock>();
-                    pickupDock_oreDockB_Smelter.Settings.IncludedItems.AddUnique(Core.itemsToAddToSmelter);
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
     public class Core : MelonMod
     {
         public static event Action PreSetUpRecipes = () => { };
@@ -171,7 +141,24 @@ namespace CustomRecipesAPI
 
             PostSetUpRecipes.Invoke();
 
-            HarmonyInstance.Patch(AccessTools.Method(typeof(NetworkPrefab), "Initialize"), postfix: new HarmonyMethod(typeof(InitializePatch), nameof(InitializePatch.Postfix)));
+            GameObject mouldPressStandard = (GameObject)Resources.Load("network prefabs/crafting/mould press prefabs/Mould Press Standard");
+            List<NetworkEntity> embeddedEntities_mouldPressStandard = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mouldPressStandard.GetComponent<NetworkPrefab>());
+            NetworkEntity networkEntity_mouldPressStandard = embeddedEntities_mouldPressStandard.Where(entity => entity.Hash == 36080u).First();
+            PickupDock pickupDock_mouldPressStandard = networkEntity_mouldPressStandard.gameObject.GetComponent<PickupDock>();
+            pickupDock_mouldPressStandard.Settings.IncludedItems.AddUnique(itemsToAddToStandardMouldPress);
+
+            GameObject mouldPressHebios = (GameObject)Resources.Load("network prefabs/crafting/mould press prefabs/Mould Press Hebios");
+            List<NetworkEntity> embeddedEntities_mouldPressHebios = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mouldPressHebios.GetComponent<NetworkPrefab>());
+            NetworkEntity networkEntity_mouldPressHebios = embeddedEntities_mouldPressHebios.Where(entity => entity.Hash == 36080u).First();
+            PickupDock pickupDock_mouldPressHebios = networkEntity_mouldPressHebios.gameObject.GetComponent<PickupDock>();
+            pickupDock_mouldPressHebios.Settings.IncludedItems.AddUnique(itemsToAddToHebiosMouldPress);
+
+            GameObject smelter = (GameObject)Resources.Load("network prefabs/environment/blacksmithing/Smelter");
+            List<NetworkEntity> embeddedEntities_Smelter = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smelter.GetComponent<NetworkPrefab>());
+            NetworkEntity networkEntity_oreDockB_Smelter = embeddedEntities_Smelter.Where(entity => entity.Hash == 42990u).First();
+            PickupDock pickupDock_oreDockB_Smelter = networkEntity_oreDockB_Smelter.gameObject.GetComponent<PickupDock>();
+            pickupDock_oreDockB_Smelter.Settings.IncludedItems.AddUnique(itemsToAddToSmelter);
+
             HarmonyInstance.Patch(AccessTools.Method(
                 typeof(SpawnHelper),
                 "Spawn",
@@ -335,11 +322,39 @@ namespace CustomRecipesAPI
             typeof(PageCollection).GetField("pageBases", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselingCollection, pageBasesList.ToArray());
         }
 
+        public static PrefabSpawnPosition CreatePrefabSpawnPosition(uint prefabHash, Vector3 position, Quaternion rotation)
+        {
+            PrefabSpawnPosition prefabSpawnPosition = new PrefabSpawnPosition();
+            typeof(PrefabSpawnPosition).GetField("prefabHash", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(prefabSpawnPosition, prefabHash);
+            typeof(PrefabSpawnPosition).GetField("position", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(prefabSpawnPosition, position);
+            typeof(PrefabSpawnPosition).GetField("rotation", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(prefabSpawnPosition, rotation);
+            return prefabSpawnPosition;
+        }
+
+        public static ChiselDefinition CreateChiselDefinition(int hash, Glyph glyph, ChiselBlockSize size, List<int> chiselOrder, PrefabSpawnPosition[] prefabs)
+        {
+            ChiselDefinition chiselDefinition = GameObject.Instantiate(ChiselDefinition.All.Where(chisel => chisel.Hash == 46222u).First());
+            typeof(HashedGeneralValue<ChiselDefinition>).GetField("hash", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselDefinition, hash);
+            chiselDefinition.recipeGlyph = glyph;
+            typeof(ChiselDefinition).GetField("size", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselDefinition, size);
+            typeof(ChiselDefinition).GetField("chiselOrder", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselDefinition, chiselOrder);
+            typeof(ChiselDefinition).GetField("prefabs", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselDefinition, prefabs);
+            return chiselDefinition;
+        }
+
         public static void SetUpChiselDefinition(ChiselDefinition chiselDefinition, Glyph glyph)
         {
             FixChiselDefinitionInspectorValues(chiselDefinition, glyph);
             RegisterChiselDefinition(chiselDefinition);
             AddChiselDefinitionToChiselingCollection(chiselDefinition);
+        }
+
+        public static ChiselDefinition SetUpChiselDefinitionThroughCode(int hash, Glyph glyph, ChiselBlockSize size, List<int> chiselOrder, PrefabSpawnPosition[] prefabs)
+        {
+            ChiselDefinition chiselDefinition = CreateChiselDefinition(hash, glyph, size, chiselOrder, prefabs);
+            RegisterChiselDefinition(chiselDefinition);
+            AddChiselDefinitionToChiselingCollection(chiselDefinition);
+            return chiselDefinition;
         }
     }
 }
