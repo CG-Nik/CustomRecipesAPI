@@ -7,7 +7,6 @@ using Alta.Networking;
 using Alta.Pages;
 using HarmonyLib;
 using MelonLoader;
-using MelonLoader.Utils;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
@@ -222,10 +221,8 @@ namespace CustomRecipesAPI
             }
         }
 
-        public static void SetUpMould(uint itemHash, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent = null, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
+        public static void SetUpMould(Item item, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent = null, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
         {
-            Item item = Item.All.Where(item => item.Hash == itemHash).First();
-
             if (mouldItemComponent != null)
             {
                 AddMouldItemComponent(item, mouldItemComponent);
@@ -331,9 +328,10 @@ namespace CustomRecipesAPI
             return prefabSpawnPosition;
         }
 
-        public static ChiselDefinition CreateChiselDefinition(int hash, Glyph glyph, ChiselBlockSize size, List<int> chiselOrder, PrefabSpawnPosition[] prefabs)
+        public static ChiselDefinition CreateChiselDefinition(string name, int hash, Glyph glyph, ChiselBlockSize size, List<int> chiselOrder, PrefabSpawnPosition[] prefabs)
         {
-            ChiselDefinition chiselDefinition = GameObject.Instantiate(ChiselDefinition.All.Where(chisel => chisel.Hash == 46222u).First());
+            ChiselDefinition chiselDefinition = GameObject.Instantiate(ChiselDefinition.All.Where(def => def.Hash == 46222u).First());
+            chiselDefinition.name = name;
             typeof(HashedGeneralValue<ChiselDefinition>).GetField("hash", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselDefinition, hash);
             chiselDefinition.recipeGlyph = glyph;
             typeof(ChiselDefinition).GetField("size", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselDefinition, size);
@@ -349,9 +347,9 @@ namespace CustomRecipesAPI
             AddChiselDefinitionToChiselingCollection(chiselDefinition);
         }
 
-        public static ChiselDefinition SetUpChiselDefinitionThroughCode(int hash, Glyph glyph, ChiselBlockSize size, List<int> chiselOrder, PrefabSpawnPosition[] prefabs)
+        public static ChiselDefinition SetUpChiselDefinitionThroughCode(string name, int hash, Glyph glyph, ChiselBlockSize size, List<int> chiselOrder, PrefabSpawnPosition[] prefabs)
         {
-            ChiselDefinition chiselDefinition = CreateChiselDefinition(hash, glyph, size, chiselOrder, prefabs);
+            ChiselDefinition chiselDefinition = CreateChiselDefinition(name, hash, glyph, size, chiselOrder, prefabs);
             RegisterChiselDefinition(chiselDefinition);
             AddChiselDefinitionToChiselingCollection(chiselDefinition);
             return chiselDefinition;
