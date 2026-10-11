@@ -7,6 +7,7 @@ using Alta.Networking;
 using Alta.Pages;
 using HarmonyLib;
 using MelonLoader;
+using Mono.CSharp;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
@@ -175,11 +176,13 @@ namespace CustomRecipesAPI
             PostPatches.Invoke();
         }
 
-        public static void AddMouldItemComponent(Item item, MouldItemComponent mouldItemComponent)
+        public static void AddMouldItemComponent(Item item, MouldDefinition mouldDefinition)
         {
+            MouldItemComponent mouldItemComponent = new MouldItemComponent();
+            mouldItemComponent.name = item.name + "Mould Item Component";
+            typeof(MouldItemComponent).GetField("definition", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldItemComponent, mouldDefinition);
             List<ItemComponent> components = (List<ItemComponent>)typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item);
             components.Add(mouldItemComponent);
-            typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(item, components);
         }
 
         public static void FixMouldDefinitionInspectorValues(Item item, MouldDefinition mouldDefinition)
@@ -221,11 +224,11 @@ namespace CustomRecipesAPI
             }
         }
 
-        public static void SetUpMould(Item item, MouldDefinition mouldDefinition, MouldItemComponent mouldItemComponent = null, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
+        public static void SetUpMould(Item item, MouldDefinition mouldDefinition, bool addMouldItemComponent = false, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
         {
-            if (mouldItemComponent != null)
+            if (addMouldItemComponent)
             {
-                AddMouldItemComponent(item, mouldItemComponent);
+                AddMouldItemComponent(item, mouldDefinition);
             }
 
             FixMouldDefinitionInspectorValues(item, mouldDefinition);
@@ -296,6 +299,33 @@ namespace CustomRecipesAPI
             FixSmeltingRecipeInspectorValues(smeltingRecipe, inputs, outputs);
             RegisterSmeltingRecipe(smeltingRecipe);
             AddSmeltingRecipeToSmelterUpgrades(smeltingRecipe, smelterUpgrades, addToSimpleServerDefaultUpgrades);
+        }
+
+        public static ItemCount CreateItemCount(Item item, int count)
+        {
+            ItemCount itemCount = new ItemCount();
+            typeof(ItemCount).GetField("item", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(itemCount, item);
+            typeof(ItemCount).GetField("count", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(itemCount, count);
+            return itemCount;
+        }
+
+        public static SmeltingRecipe CreateSmeltingRecipe(string name, int hash, float duration, ItemCount[] inputs, ItemCount[] outputs)
+        {
+            SmeltingRecipe smeltingRecipe = GameObject.Instantiate(SmeltingRecipe.All.Where(recipe => recipe.Hash == 31642u).First());
+            smeltingRecipe.name = name;
+            typeof(HashedGeneralValue<SmeltingRecipe>).GetField("hash", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smeltingRecipe, hash);
+            typeof(SmeltingRecipe).GetField("duration", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smeltingRecipe, duration);
+            typeof(SmeltingRecipe).GetField("input", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smeltingRecipe, inputs);
+            typeof(SmeltingRecipe).GetField("output", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smeltingRecipe, outputs);
+            return smeltingRecipe;
+        }
+
+        public static SmeltingRecipe SetUpSmeltingRecipeThroughCode(string name, int hash, float duration, ItemCount[] inputs, ItemCount[] outputs, SmelterUpgrades smelterUpgrades = null, bool addToSimpleServerDefaultUpgrades = true)
+        {
+            SmeltingRecipe smeltingRecipe = CreateSmeltingRecipe(name, hash, duration, inputs, outputs);
+            RegisterSmeltingRecipe(smeltingRecipe);
+            AddSmeltingRecipeToSmelterUpgrades(smeltingRecipe, smelterUpgrades, addToSimpleServerDefaultUpgrades);
+            return smeltingRecipe;
         }
 
         public static void FixChiselDefinitionInspectorValues(ChiselDefinition chiselDefinition, Glyph glyph)
