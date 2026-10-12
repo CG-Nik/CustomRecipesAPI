@@ -178,7 +178,7 @@ namespace CustomRecipesAPI
 
         public static void AddMouldItemComponent(Item item, MouldDefinition mouldDefinition)
         {
-            MouldItemComponent mouldItemComponent = new MouldItemComponent();
+            MouldItemComponent mouldItemComponent = ScriptableObject.CreateInstance<MouldItemComponent>();
             mouldItemComponent.name = item.name + "Mould Item Component";
             typeof(MouldItemComponent).GetField("definition", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldItemComponent, mouldDefinition);
             List<ItemComponent> components = (List<ItemComponent>)typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item);
