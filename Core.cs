@@ -126,6 +126,19 @@ namespace CustomRecipesAPI
             WhiteGoldIngot = 24016
         }
 
+        public enum PageCollectionHashes
+        {
+            BlacksmithBasicsCollection = 11654,
+            ChiselingCollection = 716,
+            EdibleObjectsCollection = 17390,
+            GenericCraftingCollection = 57634,
+            HuntingBasicsCollection = 29810,
+            MiningBasicsCollection = 13678,
+            StewIngredientCollection = 62188,
+            StewingRecipesCollection = 27908,
+            WoodcuttingBasicsCollection = 48982
+        }
+
         public override void OnInitializeMelon()
         {
             LoggerInstance.Msg("Initialized.");
@@ -340,13 +353,12 @@ namespace CustomRecipesAPI
             items.Add(chiselDefinition.Hash, chiselDefinition);
         }
 
-        public static void AddChiselDefinitionToChiselingCollection(ChiselDefinition chiselDefinition)
+        public static void AddToPageCollection(PageCollection pageCollection, UnityEngine.Object obj)
         {
-            PageCollection chiselingCollection = PageCollection.All.Where(coll => coll.Hash == 716u).First();
-            UnityEngine.Object[] pageBasesArray = (UnityEngine.Object[])typeof(PageCollection).GetField("pageBases", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(chiselingCollection);
+            UnityEngine.Object[] pageBasesArray = (UnityEngine.Object[])typeof(PageCollection).GetField("pageBases", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pageCollection);
             List<UnityEngine.Object> pageBasesList = pageBasesArray.ToList();
-            pageBasesList.Add(chiselDefinition);
-            typeof(PageCollection).GetField("pageBases", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(chiselingCollection, pageBasesList.ToArray());
+            pageBasesList.Add(obj);
+            typeof(PageCollection).GetField("pageBases", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(pageCollection, pageBasesList.ToArray());
         }
 
         public static PrefabSpawnPosition CreatePrefabSpawnPosition(uint prefabHash, Vector3 position, Quaternion rotation)
@@ -374,14 +386,14 @@ namespace CustomRecipesAPI
         {
             FixChiselDefinitionInspectorValues(chiselDefinition, glyph);
             RegisterChiselDefinition(chiselDefinition);
-            AddChiselDefinitionToChiselingCollection(chiselDefinition);
+            AddToPageCollection(PageCollection.All.Where(collection => collection.Hash == (int)PageCollectionHashes.ChiselingCollection).First(), chiselDefinition);
         }
 
         public static ChiselDefinition SetUpChiselDefinitionThroughCode(string name, int hash, Glyph glyph, ChiselBlockSize size, List<int> chiselOrder, PrefabSpawnPosition[] prefabs)
         {
             ChiselDefinition chiselDefinition = CreateChiselDefinition(name, hash, glyph, size, chiselOrder, prefabs);
             RegisterChiselDefinition(chiselDefinition);
-            AddChiselDefinitionToChiselingCollection(chiselDefinition);
+            AddToPageCollection(PageCollection.All.Where(collection => collection.Hash == (int)PageCollectionHashes.ChiselingCollection).First(), chiselDefinition);
             return chiselDefinition;
         }
     }
