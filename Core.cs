@@ -7,8 +7,6 @@ using Alta.Networking;
 using Alta.Pages;
 using HarmonyLib;
 using MelonLoader;
-using Mono.CSharp;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using UnityEngine;
@@ -69,6 +67,9 @@ namespace CustomRecipesAPI
 
     public class Core : MelonMod
     {
+        // For modders' information, SetUpRecipes is only a good place to set your recipes up when you're not using any custom items
+        // If you're using any custom items for your recipes, those won't be registered until after all of these Actions run, meaning you'll instead have to use SyncLib's registration Actions for recipes
+        // This is unfortunate, as the whole point of this Action system is to "guarantee" that all recipes are set up in PostSetUpRecipes, and not set up in PreSetUpRecipes, but I can't really fix this issue
         public static event Action PreSetUpRecipes = () => { };
         public static event Action SetUpRecipes = () => { };
         public static event Action PostSetUpRecipes = () => { };
@@ -81,6 +82,8 @@ namespace CustomRecipesAPI
         public static List<Item> itemsToAddToHebiosMouldPress = [];
         // Same thing, but with the Smelter's input instead of making Moulds with a Mould Press
         public static List<Item> itemsToAddToSmelter = [];
+        // Same thing, but with the Smelter's output auto dock
+        public static List<Item> itemsToAddToSmelterAutodock = [];
         // Adding an Item's Prefab's Hash to this will cause the Smelter to spawn the Item with that Vector3 as a position offset when creating said Item with a Mould
         // The purpose of this is to prevent certain items from getting stuck in the Smelter
         public static Dictionary<uint, Vector3> smelterSpawnPositionOffsets = [];
@@ -144,33 +147,49 @@ namespace CustomRecipesAPI
             LoggerInstance.Msg("Initialized.");
         }
 
+        private static void InvokeEach(Action action, string eventName)
+        {
+            if (action == null)
+                return;
+
+            foreach (Action subscriber in action.GetInvocationList())
+            {
+                try
+                {
+                    subscriber();
+                }
+                catch (Exception ex)
+                {
+                    MelonLogger.Error($"{eventName} subscriber {subscriber.Method.DeclaringType?.FullName}.{subscriber.Method.Name} from {subscriber.Method.DeclaringType?.Assembly.GetName().Name} failed, continuing with the others");
+                    MelonLogger.Error(ex);
+                }
+            }
+        }
+
         public override void OnLateInitializeMelon()
         {
             mouldDefinition_axeHeadCurveMould = MouldDefinition.All.Where(mould => mould.Hash == 22952u).First();
 
-            PreSetUpRecipes.Invoke();
+            InvokeEach(PreSetUpRecipes, nameof(PreSetUpRecipes));
 
-            SetUpRecipes.Invoke();
+            InvokeEach(SetUpRecipes, nameof(SetUpRecipes));
 
-            PostSetUpRecipes.Invoke();
+            InvokeEach(PostSetUpRecipes, nameof(PostSetUpRecipes));
 
-            GameObject mouldPressStandard = (GameObject)Resources.Load("network prefabs/crafting/mould press prefabs/Mould Press Standard");
-            List<NetworkEntity> embeddedEntities_mouldPressStandard = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mouldPressStandard.GetComponent<NetworkPrefab>());
-            NetworkEntity networkEntity_mouldPressStandard = embeddedEntities_mouldPressStandard.Where(entity => entity.Hash == 36080u).First();
-            PickupDock pickupDock_mouldPressStandard = networkEntity_mouldPressStandard.gameObject.GetComponent<PickupDock>();
-            pickupDock_mouldPressStandard.Settings.IncludedItems.AddUnique(itemsToAddToStandardMouldPress);
+            PickupDockSettings mouldPressInputDockStandard = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Mould Press Input Dock Standard").First();
+            mouldPressInputDockStandard.IncludedItems.AddUnique(itemsToAddToStandardMouldPress);
 
-            GameObject mouldPressHebios = (GameObject)Resources.Load("network prefabs/crafting/mould press prefabs/Mould Press Hebios");
-            List<NetworkEntity> embeddedEntities_mouldPressHebios = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mouldPressHebios.GetComponent<NetworkPrefab>());
-            NetworkEntity networkEntity_mouldPressHebios = embeddedEntities_mouldPressHebios.Where(entity => entity.Hash == 36080u).First();
-            PickupDock pickupDock_mouldPressHebios = networkEntity_mouldPressHebios.gameObject.GetComponent<PickupDock>();
-            pickupDock_mouldPressHebios.Settings.IncludedItems.AddUnique(itemsToAddToHebiosMouldPress);
+            PickupDockSettings mouldPressInputDockHebios = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Mould Press Input Dock Hebios").First();
+            mouldPressInputDockHebios.IncludedItems.AddUnique(itemsToAddToHebiosMouldPress);
 
-            GameObject smelter = (GameObject)Resources.Load("network prefabs/environment/blacksmithing/Smelter");
-            List<NetworkEntity> embeddedEntities_Smelter = (List<NetworkEntity>)typeof(NetworkEntityParent).GetField("embeddedEntities", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smelter.GetComponent<NetworkPrefab>());
-            NetworkEntity networkEntity_oreDockB_Smelter = embeddedEntities_Smelter.Where(entity => entity.Hash == 42990u).First();
-            PickupDock pickupDock_oreDockB_Smelter = networkEntity_oreDockB_Smelter.gameObject.GetComponent<PickupDock>();
-            pickupDock_oreDockB_Smelter.Settings.IncludedItems.AddUnique(itemsToAddToSmelter);
+            PickupDockSettings oreDock = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Ore Dock").First();
+            oreDock.IncludedItems.AddUnique(itemsToAddToSmelter);
+
+            PickupTag smelterAutodockTag = Resources.Load<PickupTag>("tags/Smelter Autodock");
+            foreach (Item item in itemsToAddToSmelterAutodock)
+            {
+                item.Tags.AddUnique(smelterAutodockTag);
+            }
 
             HarmonyInstance.Patch(AccessTools.Method(
                 typeof(SpawnHelper),
@@ -186,7 +205,7 @@ namespace CustomRecipesAPI
                 }
             ), prefix: new HarmonyMethod(typeof(SpawnPatch), nameof(SpawnPatch.Prefix)));
 
-            PostPatches.Invoke();
+            InvokeEach(PostPatches, nameof(PostPatches));
         }
 
         public static void AddMouldItemComponent(Item item, MouldDefinition mouldDefinition)
