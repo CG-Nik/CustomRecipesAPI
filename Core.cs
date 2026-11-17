@@ -76,6 +76,8 @@ namespace CustomRecipesAPI
         public static event Action PostPatches = () => { };
 
         // Adding an Item to this will add it to the filter that the Standard Mould Press uses for the weapon to be turned into a Mould
+        // These are "added" or "applied" by AddItemsToFilters(), which is automatically called directly after PostSetUpRecipes()
+        // You can manually call AddItemsToFilters() if you need to add an item to a filter after the initial call
         // This allows you to use said Item to make Moulds with the Standard Mould Press
         public static List<Item> itemsToAddToStandardMouldPress = [];
         // Same thing, but with the Hebios Mould Press
@@ -166,16 +168,8 @@ namespace CustomRecipesAPI
             }
         }
 
-        public override void OnLateInitializeMelon()
+        public static void AddItemsToFilters()
         {
-            mouldDefinition_axeHeadCurveMould = MouldDefinition.All.Where(mould => mould.Hash == 22952u).First();
-
-            InvokeEach(PreSetUpRecipes, nameof(PreSetUpRecipes));
-
-            InvokeEach(SetUpRecipes, nameof(SetUpRecipes));
-
-            InvokeEach(PostSetUpRecipes, nameof(PostSetUpRecipes));
-
             PickupDockSettings mouldPressInputDockStandard = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Mould Press Input Dock Standard").First();
             mouldPressInputDockStandard.IncludedItems.AddUnique(itemsToAddToStandardMouldPress);
 
@@ -190,6 +184,19 @@ namespace CustomRecipesAPI
             {
                 item.Tags.AddUnique(smelterAutodockTag);
             }
+        }
+
+        public override void OnLateInitializeMelon()
+        {
+            mouldDefinition_axeHeadCurveMould = MouldDefinition.All.Where(mould => mould.Hash == 22952u).First();
+
+            InvokeEach(PreSetUpRecipes, nameof(PreSetUpRecipes));
+
+            InvokeEach(SetUpRecipes, nameof(SetUpRecipes));
+
+            InvokeEach(PostSetUpRecipes, nameof(PostSetUpRecipes));
+
+            AddItemsToFilters();
 
             HarmonyInstance.Patch(AccessTools.Method(
                 typeof(SpawnHelper),
