@@ -9,7 +9,9 @@ using HarmonyLib;
 using MelonLoader;
 using System.Diagnostics;
 using System.Reflection;
+using System.Xml.Linq;
 using UnityEngine;
+using static AltaMenuItemBase.Township.Features;
 using static SpawnHelper;
 
 [assembly: MelonInfo(typeof(CustomRecipesAPI.Core), "CustomRecipesAPI", "1.0.0", "CGNik", null)]
@@ -215,13 +217,17 @@ namespace CustomRecipesAPI
             InvokeEach(PostPatches, nameof(PostPatches));
         }
 
-        public static void AddMouldItemComponent(Item item, MouldDefinition mouldDefinition)
+        public static MouldItemComponent CreateMouldItemComponent(string name, MouldDefinition mouldDefinition)
         {
             MouldItemComponent mouldItemComponent = ScriptableObject.CreateInstance<MouldItemComponent>();
-            mouldItemComponent.name = item.name + "Mould Item Component";
+            mouldItemComponent.name = name;
             typeof(MouldItemComponent).GetField("definition", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldItemComponent, mouldDefinition);
-            List<ItemComponent> components = (List<ItemComponent>)typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item);
-            components.Add(mouldItemComponent);
+            return mouldItemComponent;
+        }
+
+        public static void AddItemComponent(Item item, ItemComponent itemComponent)
+        {
+            ((List<ItemComponent>)typeof(Item).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item)).Add(itemComponent);
         }
 
         public static void FixMouldDefinitionInspectorValues(Item item, MouldDefinition mouldDefinition)
@@ -263,11 +269,34 @@ namespace CustomRecipesAPI
             }
         }
 
-        public static void SetUpMould(Item item, MouldDefinition mouldDefinition, bool addMouldItemComponent = false, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null)
+        public static ItemSet CreateItemSet(string name, List<Item> items)
+        {
+            ItemSet itemSet = ScriptableObject.CreateInstance<ItemSet>();
+            itemSet.name = name;
+            typeof(ItemSet).GetField("items", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(itemSet, items);
+            return itemSet;
+        }
+
+        public static void AddToItemSet(ItemSet itemSet, Item item)
+        {
+            ((List<Item>)typeof(ItemSet).GetField("items", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(itemSet)).Add(item);
+        }
+
+        public static Ingot CreateIngot(string name, float smeltingDuration, PhysicalMaterial physicalMaterial)
+        {
+            Ingot ingot = ScriptableObject.CreateInstance<Ingot>();
+            ingot.name = name;
+            typeof(Ingot).GetField("smeltingDuration", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ingot, smeltingDuration);
+            typeof(Ingot).GetField("physicalMaterial", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(ingot, physicalMaterial);
+            return ingot;
+        }
+
+        public static void SetUpMould(Item item, MouldDefinition mouldDefinition, bool addMouldItemComponent = false, bool addToStandardPress = false, bool addToHebiosPress = false, Vector3? positionOffset = null, Vector3? rotationOffset = null, ItemSet itemSet = null)
         {
             if (addMouldItemComponent)
             {
-                AddMouldItemComponent(item, mouldDefinition);
+                MouldItemComponent mouldItemComponent = CreateMouldItemComponent(item.name + " Mould Item Component", mouldDefinition);
+                AddItemComponent(item, mouldItemComponent);
             }
 
             FixMouldDefinitionInspectorValues(item, mouldDefinition);
@@ -284,6 +313,11 @@ namespace CustomRecipesAPI
             if (addToHebiosPress)
             {
                 itemsToAddToHebiosMouldPress.Add(item);
+            }
+
+            if (itemSet != null)
+            {
+                typeof(MouldDefinition).GetField("allowedMaterials", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mouldDefinition, itemSet);
             }
         }
 
