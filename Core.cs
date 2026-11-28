@@ -9,9 +9,7 @@ using HarmonyLib;
 using MelonLoader;
 using System.Diagnostics;
 using System.Reflection;
-using System.Xml.Linq;
 using UnityEngine;
-using static AltaMenuItemBase.Township.Features;
 using static SpawnHelper;
 
 [assembly: MelonInfo(typeof(CustomRecipesAPI.Core), "CustomRecipesAPI", "1.0.0", "CGNik", null)]
@@ -19,6 +17,24 @@ using static SpawnHelper;
 
 namespace CustomRecipesAPI
 {
+    public class SetDefinitionPatch
+    {
+        internal static void Postfix(Mould __instance, MouldDefinition definition, bool isOnvalidate)
+        {
+            if (ApplicationManager.IsHeadless)
+            {
+                return;
+            }
+
+            Material material = Core.itemSetCustomMaterials[definition.AllowedMaterials];
+
+            if (material == null) { return; }
+
+            MeshFilter meshFilter = (MeshFilter)typeof(Mould).GetField("graphic", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
+            meshFilter.gameObject.GetComponent<MeshRenderer>().material = material;
+        }
+    }
+
     public class SpawnPatch
     {
         static MethodBase TargetMethod()
@@ -93,6 +109,8 @@ namespace CustomRecipesAPI
         public static Dictionary<uint, Vector3> smelterSpawnPositionOffsets = [];
         // Same thing, but with rotation instead of position
         public static Dictionary<uint, Vector3> smelterSpawnRotationOffsets = [];
+        // If a certain ItemSet is used for a Mould, this will cause the Graphic of that Mould to instead use the set custom Material instead of the metal one
+        public static Dictionary<ItemSet, Material> itemSetCustomMaterials = [];
         // Used for FixMouldDefinitionInspectorValues, gets set here to prevent having to get it every time FixMouldDefinitionInspectorValues is called
         private static MouldDefinition mouldDefinition_axeHeadCurveMould;
         // Used to add SmeltingRecipes to the SmelterUnlockManager, which is the actually important "registering" that it does
@@ -180,6 +198,8 @@ namespace CustomRecipesAPI
 
             PickupDockSettings oreDock = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Ore Dock").First();
             oreDock.IncludedItems.AddUnique(itemsToAddToSmelter);
+            PickupDockSettings orePickupDock = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Ore Pickup Dock").First();
+            oreDock.IncludedItems.AddUnique(itemsToAddToSmelter);
 
             PickupTag smelterAutodockTag = Resources.Load<PickupTag>("tags/Smelter Autodock");
             foreach (Item item in itemsToAddToSmelterAutodock)
@@ -213,6 +233,8 @@ namespace CustomRecipesAPI
                     typeof(SpawnHelper.SpawningCallback)
                 }
             ), prefix: new HarmonyMethod(typeof(SpawnPatch), nameof(SpawnPatch.Prefix)));
+
+            HarmonyInstance.Patch(AccessTools.Method(typeof(Mould), "SetDefinition"), postfix: new HarmonyMethod(typeof(SetDefinitionPatch), nameof(SetDefinitionPatch.Postfix)));
 
             InvokeEach(PostPatches, nameof(PostPatches));
         }
@@ -364,6 +386,24 @@ namespace CustomRecipesAPI
                 List<SmeltingRecipe> originalSmeltingRecipes = ((SmeltingRecipe[])typeof(SmelterUpgrades).GetField("recipes", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smelterUpgrades)).ToList();
                 originalSmeltingRecipes.Add(smeltingRecipe);
                 typeof(SmelterUpgrades).GetField("recipes", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smelterUpgrades, originalSmeltingRecipes.ToArray());
+            }
+        }
+
+        public static void AddPhysicalMaterialToSmelterUpgrades(PhysicalMaterial physicalMaterial, SmelterUpgrades smelterUpgrades = null, bool addToSimpleServerDefaultUpgrades = true)
+        {
+            if (addToSimpleServerDefaultUpgrades)
+            {
+                SmelterUpgrades smelterUpgrades_simpleServerDefaultUpgrades = SmelterUpgrades.All.Where(upgrade => upgrade.Hash == 5674u).First();
+                List<PhysicalMaterial> originalPhysicalMaterials = ((PhysicalMaterial[])typeof(SmelterUpgrades).GetField("physicalMaterials", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smelterUpgrades_simpleServerDefaultUpgrades)).ToList();
+                originalPhysicalMaterials.Add(physicalMaterial);
+                typeof(SmelterUpgrades).GetField("physicalMaterials", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smelterUpgrades_simpleServerDefaultUpgrades, originalPhysicalMaterials.ToArray());
+            }
+
+            if (smelterUpgrades != null)
+            {
+                List<PhysicalMaterial> originalPhysicalMaterials = ((PhysicalMaterial[])typeof(SmelterUpgrades).GetField("physicalMaterials", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(smelterUpgrades)).ToList();
+                originalPhysicalMaterials.Add(physicalMaterial);
+                typeof(SmelterUpgrades).GetField("physicalMaterials", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(smelterUpgrades, originalPhysicalMaterials.ToArray());
             }
         }
 
