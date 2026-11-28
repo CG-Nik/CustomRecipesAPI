@@ -199,7 +199,7 @@ namespace CustomRecipesAPI
             PickupDockSettings oreDock = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Ore Dock").First();
             oreDock.IncludedItems.AddUnique(itemsToAddToSmelter);
             PickupDockSettings orePickupDock = Resources.FindObjectsOfTypeAll<PickupDockSettings>().Where(settings => settings.name == "Ore Pickup Dock").First();
-            oreDock.IncludedItems.AddUnique(itemsToAddToSmelter);
+            orePickupDock.IncludedItems.AddUnique(itemsToAddToSmelter);
 
             PickupTag smelterAutodockTag = Resources.Load<PickupTag>("tags/Smelter Autodock");
             foreach (Item item in itemsToAddToSmelterAutodock)
